@@ -8,17 +8,16 @@
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
-    <!-- <div class="bars-container"></div> -->
     <div class="container">
-      <div class="new-input">
-        <div id="dropZone">
-          Drag & drop an audio file here<br />or click to browse
-        </div>
-        <input type="file" id="fileInput" accept="audio/*" />
-        <audio src="" id="audio"></audio>
+      <div class="cover-art-wrapper">
+
+        <img src="" alt="" class="cover-art" />
+              <div class="bars-or-lyrics">
+        <div class="lyrics"></div>
+        <div class="bars-container"></div>
+      </div>
       </div>
       <div class="music-info">
-        <img src="" alt="" class="cover-art" />
         <div class="trach-info">
           <div class="track-title"></div>
           <div class="track-artist"></div>
@@ -26,16 +25,29 @@
           <div class="genre"></div>
         </div>
       </div>
-  
+
+      
       <div class="play-list"></div>
-      <div class="lyrics"></div>
-       <input
-          type="range"
-          id="volume-bar"
-          min="0"
-          max="1"
-          step="0.01"
-          value="0.5" />
+      <div class="recently-played-list">
+
+      </div>
+      <div class="new-input">
+        <div id="dropZone">
+          Drag & drop an audio file here<br />or click to browse
+        </div>
+        <input type="file" id="fileInput" accept="audio/*" />
+        <audio src="" id="audio"></audio>
+      </div>
+    </div>
+    <div class="volume-wrapper">
+
+      <input
+      type="range"
+      id="volume-bar"
+      min="0"
+      max="1"
+      step="0.01"
+      value="0.5" />
     </div>
         <div class="controls">
           <div class="bottons">
