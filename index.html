@@ -4,63 +4,107 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
-    <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="container">
-      <div class="cover-art-wrapper">
-
-        <img src="" alt="" class="cover-art" />
-              <div class="bars-or-lyrics">
-        <div class="lyrics"></div>
-        <div class="bars-container"></div>
-      </div>
-      </div>
-      <div class="music-info">
-        <div class="trach-info">
-          <div class="track-title"></div>
-          <div class="track-artist"></div>
-          <div class="track-album"></div>
-          <div class="genre"></div>
-        </div>
-      </div>
-
-      
-      <div class="play-list"></div>
-      <div class="recently-played-list">
-
-      </div>
-      <div class="new-input">
-        <div id="dropZone">
-          Drag & drop an audio file here<br />or click to browse
-        </div>
-        <input type="file" id="fileInput" accept="audio/*" />
-        <audio src="" id="audio"></audio>
-      </div>
-    </div>
-    <div class="volume-wrapper">
-
-      <input
-      type="range"
-      id="volume-bar"
-      min="0"
-      max="1"
-      step="0.01"
-      value="0.5" />
-    </div>
-        <div class="controls">
-          <div class="bottons">
-            
-            <button class="play-next">next</button>
-            <button class="play-btn">play</button>
-            <button class="play-previous">back</button>
+      <div class="main-content">
+        <div class="cover-art-wrapper">
+          <img src="" alt="" class="cover-art" />
+          <div class="info-and-bars">
+            <div class="music-info">
+              <div class="trach-info">
+                <div class="track-title"></div>
+                <div class="track-artist"></div>
+                <div class="track-album"></div>
+                <div class="genre"></div>
+              </div>
+            </div>
+            <div class="bars-container"></div>
           </div>
-          <span class="current-time">0:00</span>
-          <input type="range" class="seek-bar" min="0" max="100" value="0" step="0.1" />
-          <div class="duration"></div>
-       
+        </div>
+        <span class="back-to-library" style="display: none"
+          >&larr; All Songs
+        </span>
+        <div class="recently-played-list"></div>
+        <div class="albums-container">
+          <h2 class="title">Albums: </h2>
+          <div class="albums"></div>
+        </div>
+        <div class="artists-container">
+          <h2>Artists</h2>
+          <div class="artists"></div>
+        </div>
+
+        
+        <ul class="track-list"></ul>
+
+        <div id="dropZone">
+          <div class="new-input">
+            Drag & drop an audio file here<br />or click to browse
+          </div>
+          <input type="file" id="fileInput" accept="audio/*" />
+          <audio src="" id="audio"></audio>
+        </div>
       </div>
+      <aside>
+        <div class="head">
+          <h2>Playlist</h2>
+          <button class="shuffle-btn icon">
+            shuffle
+            <img src="assets/arrow.png" alt="shuffle" />
+          </button>
+        </div>
+        <div class="play-list"></div>
+      </aside>
+      <div class="controls">
+        <img src="" alt="" class="cover-art-controls" />
+        <div class="bottons">
+          <button class="shuffle-btn icon">
+            <img src="assets/arrow.png" alt="" class="icon" />
+          </button>
+          <button class="play-previous icon">
+            <img src="assets/back.png" alt="" />
+          </button>
+          <button class="play-btn icon">
+            <img src="assets/back-button.png" alt="" class="play-icon" />
+          </button>
+          <button class="play-next icon">
+            <img src="assets/next.png" alt="" />
+          </button>
+          <div class="icon">
+            <img src="assets/arrow (1).png" alt="loop" class="loop-btn" />
+          </div>
+        </div>
+        <div class="time">
+          <span class="current-time">0:00</span>
+          <input
+            type="range"
+            class="seek-bar"
+            min="0"
+            max="100"
+            value="0"
+            step="0.1" />
+          <div class="duration"></div>
+        </div>
+        <button class="icon">
+          <img src="assets/heart.png" alt="" class="icon foviorate" />
+        </button>
+        <div class="volume-wrapper">
+          <div class="volume-icon">
+            <img src="assets/volume.png" alt="volume icon" />
+          </div>
+          <input
+            type="range"
+            id="volume-bar"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0.5" />
+        </div>
+      </div>
+    </div>
   </body>
   <script src="index.js" type="module"></script>
 </html>

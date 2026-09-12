@@ -18,8 +18,13 @@ const barsContainer = document.querySelector(".bars-container");
 
 // INFO AND CONTROLS
 
+
+let libraryTracks = [];
+let currentView = { type: "library" };
+
 const title = document.querySelector(".track-title");
 const coverImg = document.querySelector(".cover-art");
+const controlsImg = document.querySelector(".cover-art-controls");
 const artist = document.querySelector(".track-artist");
 const album = document.querySelector(".track-album");
 const duration = document.querySelector(".duration");
@@ -27,10 +32,19 @@ const genre = document.querySelector(".genre");
 const list = document.querySelector(".play-list");
 const lyrics = document.querySelector(".lyrics");
 const recent = document.querySelector(".recently-played-list");
+const albumsContainer = document.querySelector('.albums')
+const artistsContainer = document.querySelector('.artists')
+const shuffleBtn = document.querySelector('.shuffle-btn');
+const backToLibraryBtn= document.querySelector('.back-to-library');
+
+let loopMode = "off";
+let isShuffling = false;
+let shuffleHistory = []
 
 const next = document.querySelector(".play-next");
 const back = document.querySelector(".play-previous");
 
+const playIcon = document.querySelector('.play-icon')
 // VOLUME
 
 const volume = document.querySelector("#volume-bar");
@@ -89,10 +103,10 @@ function handleNewFiles(fileList) {
 
   playList.push(...newFiles);
 
-  buildPlaylist(newFiles).then((elements) => {
-    elements.forEach((li) => list.appendChild(li));
-  });
-
+buildPlaylist(newFiles).then((results) => {
+  results.forEach(({ track }) => libraryTracks.push(track));
+  showLibraryView();
+});
   if (wasEmpty) {
     nowPlaying = 0;
     loadAndPlay(playList[nowPlaying]);
@@ -117,8 +131,24 @@ async function loadAndPlay(file) {
 // which made every track-end reset to track 0 no matter what. Now correctly
 // advances to the next track, wrapping to 0 after the last one.
 audio.addEventListener("ended", () => {
-  nowPlaying = (nowPlaying + 1) % playList.length;
+  // nowPlaying = (nowPlaying + 1) % playList.length;
+  // loadAndPlay(playList[nowPlaying]);
+
+  if (playList.length === 0) return;
+
+if (loopMode === "one") {
   loadAndPlay(playList[nowPlaying]);
+  return;
+}
+
+
+if (loopMode === "off" && !isShuffling && nowPlaying === playList.length - 1) {
+  return;
+}
+
+nowPlaying = getNextIndex();
+if (isShuffling) shuffleHistory.push(nowPlaying);
+loadAndPlay(playList[nowPlaying]);
 });
 
 // FUNCTIONALITIES:
@@ -127,6 +157,7 @@ audio.addEventListener("ended", () => {
 playBtn.addEventListener("click", async () => {
   if (audioCtx.state === "suspended") {
     await audioCtx.resume();
+    
   }
   if (audio.paused) {
     audio.play().catch((err) => console.warn("Playback failed:", err));
@@ -136,11 +167,12 @@ playBtn.addEventListener("click", async () => {
 });
 
 audio.addEventListener("play", () => {
-  playBtn.textContent = "Pause";
+  
+  playIcon.src = "assets/video-pause-button.png"
   draw();
 });
 audio.addEventListener("pause", () => {
-  playBtn.textContent = "Play";
+  playIcon.src = "assets/back-button.png"
   cancelAnimationFrame(rafId);
 });
 
@@ -157,17 +189,24 @@ function readTags(file) {
 }
 
 async function loadData(file) {
+  let musicObject;
+   const id = `${file.name}-${file.size}-${file.lastModified}`;
   try {
     const tag = await readTags(file);
     const { tags } = tag;
 
-    const musicObject = {
+    const imageUri = resolveImageUri(tags.picture);
+    const shadow = await getAmbientColor(imageUri).catch(() => "0,0,0");
+    console.log(file);
+    musicObject = {
+      id,
       title: tags.title || file.name,
       artist: tags.artist || "Unknown",
       album: tags.album || "Unknown",
       genre: tags.genre || "",
       lyrics: tag.tags.USLT || "No Lyrics",
-      picture: tags.picture || "./assets/default-image.jpg",
+      imageUri,
+      shadow,
     };
 
     title.textContent = musicObject.title;
@@ -176,18 +215,11 @@ async function loadData(file) {
     genre.textContent = musicObject.genre;
     lyrics.textContent = musicObject.lyrics;
 
-    updateRecentlyPlayed(musicObject)
-    if (musicObject.picture) {
-      let base64String = "";
-      for (let i = 0; i < musicObject.picture.data.length; i++) {
-        base64String += String.fromCharCode(musicObject.picture.data[i]);
-      }
-      const imageUri = `data:${musicObject.picture.format};base64,${window.btoa(base64String)}`;
-      updateAmbientColor(imageUri);
-      coverImg.src = imageUri;
-    } else {
-      coverImg.src = "./assets/default-image.jpg"; // fallback for tracks with no embedded art
-    }
+    coverImg.src = musicObject.imageUri;
+    controlsImg.src = musicObject.imageUri;
+    
+
+    updateAmbientColor(musicObject.imageUri);
 
     if (tag.tags.USLT) {
       console.log("USLT FOUND:", tag.tags.USLT);
@@ -231,12 +263,27 @@ async function loadData(file) {
     }
   } catch (error) {
     console.error("jsmediatags read failed:", error);
+
+    musicObject = {
+      id,
+      title: file.name,
+      artist: "Unknown",
+      album: "Unknown",
+      genre: "",
+      lyrics: "No Lyrics",
+      imageUri: "./assets/default-image.jpg",
+      shadow: "0,0,0",
+    };
+
     title.textContent = file.name;
     artist.textContent = "Unknown";
     album.textContent = "Unknown";
     genre.textContent = "";
     coverImg.src = "./assets/default-image.jpg";
+    controlsImg.src = "./assets/default-image.jpg";
   }
+
+  updateRecentlyPlayed(musicObject);
 
   // duration comes from the <audio> element, not from tags — wait for
   // metadata to actually load before reading it, since it's 0/NaN before that
@@ -253,7 +300,7 @@ async function loadData(file) {
 
 function updateRecentlyPlayed(musicObject) {
   const existingIndex = recentPlays.findIndex(
-    (item) => item.title === musicObject.title
+    (item) => item.title === musicObject.title,
   );
 
   if (existingIndex !== -1) {
@@ -274,10 +321,14 @@ function updateRecentlyPlayed(musicObject) {
 function renderRecentlyPlayed() {
   recent.innerHTML = ""; // clear before re-rendering, or items pile up forever
 
-  recentPlays.forEach((track) => {
+  recentPlays.forEach(async (track) => {
+    console.log(track)
     const html = `
-      <div class="recently-played-item">
-        <img src="${track.picture}" alt="" class="recently-played-cover" />
+      <div class="recently-played-item" data-id="${track.id}">
+        <img src="${track.imageUri}" alt="" class="recently-played-cover" 
+        style="box-shadow: 1px 20px 29px -11px rgba(${track.shadow},0.76);
+-webkit-box-shadow: 1px 20px 29px -11px rgba(${track.shadow},0.76);
+-moz-box-shadow: 1px 20px 29px -11px rgba(${track.shadow},0.76););" />
         <div class="recently-played-meta">
           <span class="recently-played-title">${track.title}</span>
           <span class="recently-played-artist">${track.artist}</span>
@@ -286,6 +337,33 @@ function renderRecentlyPlayed() {
     recent.insertAdjacentHTML("beforeend", html);
   });
 }
+function resolveImageUri(picture) {
+  if (!picture || !picture.data) {
+    return "./assets/default-image.jpg";
+  }
+  let base64String = "";
+  for (let i = 0; i < picture.data.length; i++) {
+    base64String += String.fromCharCode(picture.data[i]);
+  }
+  return `data:${picture.format};base64,${window.btoa(base64String)}`;
+}
+recent.addEventListener("click", (e) => {
+  const item = e.target.closest(".recently-played-item");
+  if (!item) return;
+
+  const clickedId = item.dataset.id;
+  const matchedSong = playList.find((song) => {
+     const id = `${song.name}-${song.size}-${song.lastModified}`;
+    return id === clickedId});
+  console.log(playList);
+
+  if (!matchedSong) {
+    console.warn("No match found in playlist for:", clickedId);
+    return;
+  }
+
+  loadAndPlay(matchedSong);
+});
 
 // Parses ONE file and returns a fully-built <li> element for the playlist.
 async function buildTrackElement(file) {
@@ -317,6 +395,13 @@ async function buildTrackElement(file) {
     console.warn(`Could not read tags for "${file.name}":`, error);
   }
 
+  const li = buildTrackListItem(track, file)
+  
+
+  return {track, file, li};
+}
+
+function buildTrackListItem(track, file) {
   const li = document.createElement("li");
   li.className = "playlist-item";
 
@@ -339,9 +424,6 @@ async function buildTrackElement(file) {
   textWrap.append(titleEl, artistEl);
   li.append(img, textWrap);
 
-  // fix: clicking a track now updates `nowPlaying` to the correct index
-  // (found by locating this exact file in the shared playList array),
-  // so the 'ended' handler correctly continues from THIS track onward
   li.addEventListener("click", () => {
     const index = playList.indexOf(file);
     if (index !== -1) {
@@ -362,8 +444,8 @@ async function buildPlaylist(fileList) {
   );
   if (files.length === 0) return [];
 
-  const elements = await Promise.all(files.map(buildTrackElement));
-  return elements;
+  const results = await Promise.all(files.map(buildTrackElement));
+  return results;
 }
 
 // NEXT / PREVIOUS
@@ -391,11 +473,19 @@ back.addEventListener("click", () => {
 // doesn't fight their drag by resetting the handle position every frame
 let isSeeking = false;
 
+function updateProgress() {
+  const percent = (audio.currentTime / audio.duration) * 100;
+
+  seekBar.style.setProperty("--progress", `${percent}%`);
+}
+
 // Set the slider's range once we know the track's actual length.
 // Duration isn't known until the browser loads the file's metadata.
 audio.addEventListener("loadedmetadata", () => {
   seekBar.max = audio.duration;
   seekBar.value = 0;
+
+  seekBar.style.setProperty("--progress", "0%")
 });
 
 // As the track plays, move the handle and update the time label —
@@ -403,6 +493,10 @@ audio.addEventListener("loadedmetadata", () => {
 audio.addEventListener("timeupdate", () => {
   if (isSeeking) return;
   seekBar.value = audio.currentTime;
+   const percent = (audio.currentTime / audio.duration) * 100;
+
+  seekBar.style.setProperty("--progress", `${percent}%`);
+
   if (currentTimeEl) {
     currentTimeEl.textContent = formatTime(audio.currentTime);
   }
@@ -414,6 +508,10 @@ audio.addEventListener("timeupdate", () => {
 seekBar.addEventListener("input", () => {
   isSeeking = true;
   if (currentTimeEl) {
+  const percent = (seekBar.value / seekBar.max) * 100;
+
+  seekBar.style.setProperty("--progress", `${percent}%`);
+
     currentTimeEl.textContent = formatTime(seekBar.value);
   }
 });
@@ -422,6 +520,10 @@ seekBar.addEventListener("input", () => {
 // actually commit the seek to the audio element.
 seekBar.addEventListener("change", () => {
   audio.currentTime = seekBar.value;
+  const percent = (seekBar.value / seekBar.max) * 100;
+
+  seekBar.style.setProperty("--progress", `${percent}%`);
+
   isSeeking = false;
 });
 
@@ -521,4 +623,119 @@ async function updateAmbientColor(imageUrl) {
   } catch (error) {
     console.error("Couldn't get album color:", error);
   }
+}
+
+function renderTrackList(tracks) {
+  list.innerHTML = "";
+  tracks.forEach((track) => {
+    list.appendChild(buildTrackListItem(track, track.file));
+  });
+}
+
+function showLibraryView() {
+  currentView = { type: "library" };
+  backToLibraryBtn.style.display = "none";
+  renderTrackList(libraryTracks);
+  renderAlbums();
+  renderArtists();
+}
+
+function showAlbumView(albumName) {
+  currentView = { type: "album", name: albumName };
+  backToLibraryBtn.style.display = "inline-block";
+  renderTrackList(libraryTracks.filter((t) => t.album === albumName));
+}
+
+function showArtistView(artistName) {
+  currentView = { type: "artist", name: artistName };
+  backToLibraryBtn.style.display = "inline-block";
+  renderTrackList(libraryTracks.filter((t) => t.artist === artistName));
+}
+
+
+function renderAlbums() {
+  albumsContainer.innerHTML = "";
+
+  // album name -> { cover, count }
+  const albumMap = new Map();
+  libraryTracks.forEach((track) => {
+    if (!albumMap.has(track.album)) {
+      albumMap.set(track.album, { cover: track.cover, count: 0 });
+    }
+    albumMap.get(track.album).count++;
+  });
+
+  albumMap.forEach((info, albumName) => {
+    const item = document.createElement("div");
+    item.className = "album-item";
+
+    const img = document.createElement("img");
+    img.className = "album-item-cover";
+    img.src = info.cover;
+    img.alt = `${albumName} cover`;
+
+    const label = document.createElement("span");
+    const overlay = document.createElement("div")
+    overlay.appendChild(label)
+    overlay.classList.add('album-item-overlay')
+    label.className = "album-item-name";
+    label.textContent = `${albumName} (${info.count})`;
+
+    item.append(img, overlay);
+    item.addEventListener("click", () => showAlbumView(albumName));
+    albumsContainer.appendChild(item);
+  });
+}
+
+function renderArtists() {
+  artistsContainer.innerHTML = "";
+
+  const artistNames = new Set(libraryTracks.map((t) => t.artist));
+
+  artistNames.forEach((artistName) => {
+    const item = document.createElement("div");
+    item.className = "artist-item";
+    item.textContent = artistName;
+    item.addEventListener("click", () => showArtistView(artistName));
+    artistsContainer.appendChild(item);
+  });
+}
+
+// SHUFFLE / LOOP
+
+shuffleBtn.addEventListener("click", () => {
+  isShuffling = !isShuffling;
+  shuffleBtn.classList.toggle("active", isShuffling);
+  shuffleHistory = [nowPlaying];
+});
+
+loopBtn.addEventListener("click", () => {
+  loopMode = loopMode === "off" ? "all" : loopMode === "all" ? "one" : "off";
+  loopBtn.classList.remove("loop-all", "loop-one");
+  if (loopMode !== "off") loopBtn.classList.add(`loop-${loopMode}`);
+});
+
+function getNextIndex() {
+  if (playList.length <= 1) return nowPlaying;
+
+  if (isShuffling) {
+    let next;
+    do {
+      next = Math.floor(Math.random() * playList.length);
+    } while (next === nowPlaying);
+    return next;
+  }
+
+  return (nowPlaying + 1) % playList.length;
+}
+
+function getPrevIndex() {
+  if (playList.length === 0) return nowPlaying;
+
+  if (isShuffling && shuffleHistory.length > 1) {
+    shuffleHistory.pop(); // drop the current track
+    return shuffleHistory[shuffleHistory.length - 1];
+  }
+
+  return (nowPlaying - 1 + playList.length) % playList.length;
 }
