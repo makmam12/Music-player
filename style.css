@@ -391,7 +391,11 @@ aside{
   height: 100%;
   background-color: #484f583a;
   padding: 2rem 1rem;
+  max-height: 110vh;
+  position: sticky;
   grid-area: aside;
+  overflow: auto;
+  top: 0;
 }
 
 aside h2{

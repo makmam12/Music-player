@@ -4,7 +4,6 @@ const audio = document.getElementById("audio");
 const fileInput = document.querySelector("#fileInput");
 const dropZone = document.querySelector("#dropZone");
 const playBtn = document.querySelector(".play-btn");
-const body = document.querySelector("body");
 
 let playList = [];
 let recentPlays = [];
@@ -36,6 +35,10 @@ const albumsContainer = document.querySelector('.albums')
 const artistsContainer = document.querySelector('.artists')
 const shuffleBtn = document.querySelector('.shuffle-btn');
 const backToLibraryBtn= document.querySelector('.back-to-library');
+const customList = document.querySelector(".custom-list");
+const loopBtn = document.querySelector(".loop")
+const albumsWrap = document.querySelector(".albums-container");
+const artistsWrap = document.querySelector(".artists-container");
 
 let loopMode = "off";
 let isShuffling = false;
@@ -68,7 +71,7 @@ dropZone.addEventListener("click", () => {
 dropZone.addEventListener("dragover", (e) => {
   e.preventDefault();
   dropZone.classList.add("dragover");
-  dropZone.style.display = block;
+  dropZone.style.display = "block";
 });
 window.addEventListener("dragover", (e) => {
   e.preventDefault();
@@ -452,17 +455,15 @@ async function buildPlaylist(fileList) {
 
 next.addEventListener("click", () => {
   if (playList.length === 0) return;
-  // wraps to the first track after the last one, same logic as 'ended'
-  nowPlaying = (nowPlaying + 1) % playList.length;
+  nowPlaying = getNextIndex();
+  if (isShuffling) shuffleHistory.push(nowPlaying);
   loadAndPlay(playList[nowPlaying]);
   setupAudioGraph();
 });
 
 back.addEventListener("click", () => {
   if (playList.length === 0) return;
-  // going below 0 needs its own wrap — modulo alone doesn't handle negative
-  // numbers the way you'd want in JS, so add playList.length before the % to keep it positive
-  nowPlaying = (nowPlaying - 1 + playList.length) % playList.length;
+  nowPlaying = getPrevIndex();
   loadAndPlay(playList[nowPlaying]);
   setupAudioGraph();
 });
@@ -634,7 +635,8 @@ function renderTrackList(tracks) {
 
 function showLibraryView() {
   currentView = { type: "library" };
-  backToLibraryBtn.style.display = "none";
+  // backToLibraryBtn.style.display = "none";
+  closeCustomList();
   renderTrackList(libraryTracks);
   renderAlbums();
   renderArtists();
@@ -642,16 +644,48 @@ function showLibraryView() {
 
 function showAlbumView(albumName) {
   currentView = { type: "album", name: albumName };
-  backToLibraryBtn.style.display = "inline-block";
-  renderTrackList(libraryTracks.filter((t) => t.album === albumName));
+  const track = libraryTracks.filter((t) => t.album === albumName)
+  renderCustomList(track, albumName);
 }
 
 function showArtistView(artistName) {
   currentView = { type: "artist", name: artistName };
-  backToLibraryBtn.style.display = "inline-block";
-  renderTrackList(libraryTracks.filter((t) => t.artist === artistName));
+  const track = libraryTracks.filter((t) => t.artist === artistName)
+  renderCustomList(track, artistName);
 }
 
+
+function renderCustomList(tracks, heading) {
+  customList.innerHTML = "";
+
+  const backBtn = document.createElement("button");
+  backBtn.className = "custom-list-back";
+  backBtn.textContent = "← Back";
+  backBtn.addEventListener("click", closeCustomList);
+
+  const title = document.createElement("h2");
+  title.className = "custom-list-title";
+  title.textContent = heading;
+
+  const ul = document.createElement("ul");
+  ul.className = "custom-list-tracks";
+  tracks.forEach((track) => {
+    ul.appendChild(buildTrackListItem(track, track.file));
+  });
+
+  customList.append(backBtn, title, ul);
+  customList.style.display = "block";
+
+  albumsWrap.style.display = "none";
+  artistsWrap.style.display = "none";
+}
+
+function closeCustomList() {
+  customList.innerHTML = "";
+  customList.style.display = "none";
+  albumsWrap.style.display = "";
+  artistsWrap.style.display = "";
+}
 
 function renderAlbums() {
   albumsContainer.innerHTML = "";
